@@ -63,7 +63,7 @@ if __name__ == "__main__":
     window = ScatterPlot3D()
     window.show()
 
-    cap = cv2.VideoCapture('car1.mp4')
+    cap = cv2.VideoCapture('test_nyc.mp4')
     while cap.isOpened():
         ret, frame = cap.read()
         if ret == True:
@@ -111,11 +111,14 @@ if __name__ == "__main__":
 
             camera_position = get_camera_position(frame2.pose)
             # apply random sampling
-            num_samples = 100
+            num_samples = 200
             pts3d_model = random_sampling(np.array(pts3d_model), num_samples)
 
+            if len(pts3d_model) == 0:
+                continue
+
             # apply distance filtering
-            max_distance = 50
+            max_distance = 100
             pts3d_model = distance_filtering(np.array(pts3d_model), camera_position, max_distance)
 
             window.update_scatter(pts3d_model, camera_position)
