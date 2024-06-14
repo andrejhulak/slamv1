@@ -24,7 +24,7 @@ class ScatterPlot3D(QtWidgets.QMainWindow):
         self.view.opts['distance'] = 40
 
         self.scatter2 = GLScatterPlotItem(size=1, color=(1, 1, 1, 0.6), pxMode=True)
-        self.line = GLLinePlotItem(width=3, color=(0, 0, 1, 1))
+        self.line = GLLinePlotItem(width=5, color=(0, 0, 1, 1))
 
         self.view.addItem(self.scatter2)
         self.view.addItem(self.line)
@@ -32,24 +32,38 @@ class ScatterPlot3D(QtWidgets.QMainWindow):
         self.camera_path = []
         self.points3D_model = []
 
-    def update_scatter(self, pts3D):
+    def update_scatter(self, pts3D, camera_position):
         # Update camera position
+        self.camera_path.append(camera_position)
+        self.line.setData(pos=np.array(self.camera_path))
 
-        
         # Update 3D points
         self.points3D_model.extend(pts3D)
         self.scatter2.setData(pos=np.array(self.points3D_model))
 
         self.view.update()
 
+def get_camera_position(pose):
+    R = pose[0:3, 0:3]
+    t = pose[0:3, 3]
+    camera_position = -np.dot(R.T, t)
+    return camera_position
 
+def random_sampling(points, num_samples):
+    if len(points) <= num_samples:
+        return points
+    return points[np.random.choice(points.shape[0], num_samples, replace=False)]
+
+def distance_filtering(points, camera_position, max_distance):
+    distances = np.linalg.norm(points - camera_position, axis=1)
+    return points[distances < max_distance]
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication([])
     window = ScatterPlot3D()
     window.show()
 
-    cap = cv2.VideoCapture('car3.mp4')
+    cap = cv2.VideoCapture('car1.mp4')
     while cap.isOpened():
         ret, frame = cap.read()
         if ret == True:
@@ -66,7 +80,7 @@ if __name__ == "__main__":
 
             frame2.pose = np.dot(Rt, frame1.pose)
             good_pts4d = np.array([frame1.pts[i] is None for i in idx1])
-            pts4d = triangulate(frame1.pose, frame2.pose, frame1.kps[idx1], frame2.kps[idx2])
+            pts4d = cv2.triangulatePoints(frame1.pose[:3, :], frame2.pose[:3, :], frame1.kps[idx1].T, frame2.kps[idx2].T).T
             pts4d /= pts4d[:, 3:]
             #print("Adding:  %d points" % np.sum(unmatched_points))
 
@@ -95,8 +109,16 @@ if __name__ == "__main__":
                 cv2.circle(frame, (u1, v1), color=(0,255,0), radius=1)
                 cv2.line(frame, (u1, v1), (u2, v2), color=(255, 255,0))
 
-            pts3d_model = np.array(pts3d_model)
-            window.update_scatter(pts3d_model)
+            camera_position = get_camera_position(frame2.pose)
+            # apply random sampling
+            num_samples = 100
+            pts3d_model = random_sampling(np.array(pts3d_model), num_samples)
+
+            # apply distance filtering
+            max_distance = 50
+            pts3d_model = distance_filtering(np.array(pts3d_model), camera_position, max_distance)
+
+            window.update_scatter(pts3d_model, camera_position)
             
             cv2.imshow('Slam', frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
