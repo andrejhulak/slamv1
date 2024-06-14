@@ -7,7 +7,6 @@ from triangulation import *
 import pyqtgraph as pg
 from pyqtgraph.opengl import GLViewWidget, GLScatterPlotItem, GLLinePlotItem
 from PyQt5 import QtWidgets
-from point import *
 
 #F= int(os.getenv("F","500"))
 W, H = 1920//2, 1080//2
@@ -66,17 +65,14 @@ if __name__ == "__main__":
                 continue
 
             frame2.pose = np.dot(Rt, frame1.pose)
-            #print(frame2.pose)
             good_pts4d = np.array([frame1.pts[i] is None for i in idx1])
             pts4d = triangulate(frame1.pose, frame2.pose, frame1.kps[idx1], frame2.kps[idx2])
-            #pts4d = np.array(pts4d)
             pts4d /= pts4d[:, 3:]
             #print("Adding:  %d points" % np.sum(unmatched_points))
 
             pts3d_model = []
 
             for i,p in enumerate(pts4d):
-
                 pl1 = np.dot(frame1.pose, p)
                 pl2 = np.dot(frame2.pose, p)
                 if pl1[2] < 0 or pl2[2] < 0:
@@ -90,7 +86,6 @@ if __name__ == "__main__":
                 pp2 = np.sum(pp2**2)
                 if pp1 > 2 or pp2 > 2:
                     continue
-                #pt = Rt[:3, :3] @ p[:3] + Rt[:3, 3:]
                 pt = p[:3]
                 pts3d_model.append(pt)
                     
