@@ -1,14 +1,48 @@
 import cv2
 import numpy as np
+from extract_matches import *
+from frame import denormalize
 
-def triangulate(pose1, pose2, pts1, pts2):
-    ret = np.zeros((pts1.shape[0], 4))
-    for i, p in enumerate(zip(pts1, pts2)):
-        A = np.zeros((4,4))
-        A[0] = p[0][0] * pose1[2] - pose1[0]
-        A[1] = p[0][1] * pose1[2] - pose1[1]
-        A[2] = p[1][0] * pose2[2] - pose2[0]
-        A[3] = p[1][1] * pose2[2] - pose2[1]
-        _, _, vt = np.linalg.svd(A)
-        ret[i] = vt[3]
-    return ret
+def get_camera_position(pose):
+    R = pose[0:3, 0:3]
+    t = pose[0:3, 3]
+    camera_position = -np.dot(R.T, t)
+    return camera_position
+
+def triangulate(img, frame1, frame2, Rt, idx1, idx2):
+    K = frame1.K
+    frame2.pose = np.dot(Rt, frame1.pose)
+    pts4d = cv2.triangulatePoints(frame1.pose[:3, :], frame2.pose[:3, :], frame1.kps[idx1].T, frame2.kps[idx2].T).T
+    pts4d /= pts4d[:, 3:]
+    #print("Adding:  %d points" % len(pts4d))
+
+    pts3d = []
+
+    for i,p in enumerate(pts4d):
+        pl1 = np.dot(frame1.pose, p)
+        pl2 = np.dot(frame2.pose, p)
+        if pl1[2] < 0 or pl2[2] < 0:
+            continue
+
+        pp1 = np.dot(K, pl1[:3])
+        pp2 = np.dot(K, pl2[:3])
+        pp1 = (pp1[0:2] / pp1[2]) - frame1.kpus[idx1[i]]
+        pp2 = (pp2[0:2] / pp2[2]) - frame2.kpus[idx2[i]]
+        pp1 = np.sum(pp1**2)
+        pp2 = np.sum(pp2**2)
+        if pp1 > 2 or pp2 > 2:
+            continue
+        pt = p[:3]
+        pts3d.append(pt)
+            
+    for pt1, pt2 in zip(frame1.kps[idx1], frame2.kps[idx2]):
+        u1, v1 = denormalize(K, pt1)
+        u2, v2 = denormalize(K, pt2)
+        cv2.circle(img, (u1, v1), color=(0,255,0), radius=1)
+        cv2.line(img, (u1, v1), (u2, v2), color=(255, 255,0))
+
+    camera_position = get_camera_position(frame2.pose)
+    
+    frame1.pts = pts3d
+
+    return img, pts3d, camera_position
