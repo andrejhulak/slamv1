@@ -42,13 +42,11 @@ class ScatterPlot3D(QtWidgets.QMainWindow):
         self.points3D_model.extend(pts3D)
         self.scatter2.setData(pos=np.array(self.points3D_model))
 
+        # Update view to follow the camera
+        self.view.setCameraPosition(pos=camera_position)
+        self.view.opts['center'] = pg.Vector(camera_position)
+
         self.view.update()
-
-
-def random_sampling(points, num_samples):
-    if len(points) <= num_samples:
-        return points
-    return points[np.random.choice(points.shape[0], num_samples, replace=False)]
 
 def distance_filtering(points, camera_position, max_distance):
     distances = np.linalg.norm(points - camera_position, axis=1)
@@ -79,7 +77,7 @@ if __name__ == "__main__":
             if len(pts3d) == 0:
                 continue
 
-            max_dist = 100
+            max_dist = 150
             pts3d = distance_filtering(np.array(pts3d), camera_position, max_dist)
             
             window.update_scatter(pts3d, camera_position)

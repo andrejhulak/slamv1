@@ -17,12 +17,14 @@ def triangulate(img, frame1, frame2, Rt, idx1, idx2):
     #print("Adding:  %d points" % len(pts4d))
 
     pts3d = []
-
+    rip = 0
+    proj_err_treshold = 0.001
     for i,p in enumerate(pts4d):
         pl1 = np.dot(frame1.pose, p)
         pl2 = np.dot(frame2.pose, p)
         if pl1[2] < 0 or pl2[2] < 0:
             continue
+
 
         pp1 = np.dot(K, pl1[:3])
         pp2 = np.dot(K, pl2[:3])
@@ -30,10 +32,13 @@ def triangulate(img, frame1, frame2, Rt, idx1, idx2):
         pp2 = (pp2[0:2] / pp2[2]) - frame2.kpus[idx2[i]]
         pp1 = np.sum(pp1**2)
         pp2 = np.sum(pp2**2)
-        if pp1 > 2 or pp2 > 2:
+        if pp1 > proj_err_treshold or pp2 > proj_err_treshold:
+            rip += 1
             continue
         pt = p[:3]
         pts3d.append(pt)
+
+    #print(rip)
             
     for pt1, pt2 in zip(frame1.kps[idx1], frame2.kps[idx2]):
         u1, v1 = denormalize(K, pt1)
